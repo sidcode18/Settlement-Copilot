@@ -69,7 +69,20 @@ class LLMClient:
         elif self.provider == "Gemini":
             try:
                 genai.configure(api_key=GEMINI_API_KEY)
-                self.gemini_client = genai.GenerativeModel('gemini-1.5-pro')
+                # Try different model names in order of preference
+                model_names = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro', 'gemini-1.0-pro']
+                for model_name in model_names:
+                    try:
+                        self.gemini_client = genai.GenerativeModel(model_name)
+                        # Test if the model works
+                        test_response = self.gemini_client.generate_content("test")
+                        logger.info("Successfully initialized Gemini with model: %s", model_name)
+                        break
+                    except Exception as model_error:
+                        logger.warning("Failed to initialize Gemini model %s: %s", model_name, model_error)
+                        continue
+                else:
+                    raise Exception("No working Gemini model found")
             except (ImportError, ValueError, Exception) as e:
                 logger.exception("Failed to initialize Gemini client: %s", e)
                 self.provider = None
