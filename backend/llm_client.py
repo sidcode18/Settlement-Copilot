@@ -10,6 +10,7 @@ from anthropic import APIStatusError as AnthropicAPIStatusError
 from openai import APIConnectionError as OpenAIAPIConnectionError
 from openai import APIStatusError as OpenAIAPIStatusError
 from openai import APITimeoutError as OpenAIAPITimeoutError
+import google.generativeai as genai
 
 load_dotenv()
 
@@ -18,20 +19,23 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 ACTIVE_PROVIDER = None
 if ANTHROPIC_API_KEY:
     ACTIVE_PROVIDER = "Anthropic"
 elif OPENAI_API_KEY:
     ACTIVE_PROVIDER = "OpenAI"
+elif GEMINI_API_KEY:
+    ACTIVE_PROVIDER = "Gemini"
 
 if ACTIVE_PROVIDER:
     logger.info("LLM provider active: %s", ACTIVE_PROVIDER)
 else:
     print("\n" + "=" * 80)
-    print("Running on rule-based fallback - set ANTHROPIC_API_KEY or OPENAI_API_KEY for real agent reasoning")
+    print("Running on rule-based fallback - set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY for real agent reasoning")
     print("=" * 80 + "\n")
-    logger.warning("Running on rule-based fallback - set ANTHROPIC_API_KEY or OPENAI_API_KEY for real agent reasoning")
+    logger.warning("Running on rule-based fallback - set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY for real agent reasoning")
 
 def clean_json_text(text: str) -> str:
     """Strip markdown code fences and whitespace from LLM output."""
@@ -46,6 +50,7 @@ class LLMClient:
         self.provider = ACTIVE_PROVIDER
         self.anthropic_client = None
         self.openai_client = None
+        self.gemini_client = None
         
         if self.provider == "Anthropic":
             try:
@@ -60,6 +65,13 @@ class LLMClient:
                 self.openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
             except (ImportError, ValueError) as e:
                 logger.exception("Failed to initialize OpenAI client: %s", e)
+                self.provider = None
+        elif self.provider == "Gemini":
+            try:
+                genai.configure(api_key=GEMINI_API_KEY)
+                self.gemini_client = genai.GenerativeModel('gemini-1.5-pro')
+            except (ImportError, ValueError, Exception) as e:
+                logger.exception("Failed to initialize Gemini client: %s", e)
                 self.provider = None
 
     def is_fallback(self) -> bool:
@@ -99,6 +111,21 @@ class LLMClient:
                 return response.choices[0].message.content
             except (OpenAIAPIConnectionError, OpenAIAPIStatusError, OpenAIAPITimeoutError, TimeoutError) as e:
                 logger.exception("OpenAI API call failed: %s", e)
+                return None
+
+        if self.provider == "Gemini" and self.gemini_client:
+            try:
+                combined_prompt = f"{system_prompt}\n\n{user_prompt}"
+                response = self.gemini_client.generate_content(
+                    combined_prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=temperature,
+                        max_output_tokens=1024,
+                    )
+                )
+                return response.text
+            except Exception as e:
+                logger.exception("Gemini API call failed: %s", e)
                 return None
 
         logger.error("No callable LLM client configured for provider %s", self.provider)
