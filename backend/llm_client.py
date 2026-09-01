@@ -69,20 +69,48 @@ class LLMClient:
         elif self.provider == "Gemini":
             try:
                 genai.configure(api_key=GEMINI_API_KEY)
-                # Try different model names in order of preference
-                model_names = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro', 'gemini-1.0-pro']
-                for model_name in model_names:
-                    try:
+                # Try to discover available models dynamically
+                try:
+                    available_models = [m.name for m in genai.list_models()]
+                    logger.info("Available Gemini models: %s", available_models)
+                    
+                    # Filter for models that support generateContent
+                    generative_models = [m for m in available_models if 'generate' in m.lower() or 'gemini' in m.lower()]
+                    
+                    if available_models:
+                        # Use the first available model
+                        model_name = available_models[0]
                         self.gemini_client = genai.GenerativeModel(model_name)
-                        # Test if the model works
-                        test_response = self.gemini_client.generate_content("test")
-                        logger.info("Successfully initialized Gemini with model: %s", model_name)
-                        break
-                    except Exception as model_error:
-                        logger.warning("Failed to initialize Gemini model %s: %s", model_name, model_error)
-                        continue
-                else:
-                    raise Exception("No working Gemini model found")
+                        logger.info("Configured Gemini with discovered model: %s", model_name)
+                    else:
+                        # Fallback to hardcoded list if discovery fails
+                        model_names = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro', 'gemini-1.0-pro']
+                        for model_name in model_names:
+                            try:
+                                self.gemini_client = genai.GenerativeModel(model_name)
+                                logger.info("Configured Gemini with fallback model: %s", model_name)
+                                break
+                            except Exception as model_error:
+                                logger.warning("Failed to configure Gemini model %s: %s", model_name, model_error)
+                                continue
+                        else:
+                            logger.error("Failed to configure any Gemini model")
+                            self.provider = None
+                except Exception as discovery_error:
+                    logger.warning("Model discovery failed: %s, trying fallback", discovery_error)
+                    # Fallback to hardcoded list
+                    model_names = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro', 'gemini-1.0-pro']
+                    for model_name in model_names:
+                        try:
+                            self.gemini_client = genai.GenerativeModel(model_name)
+                            logger.info("Configured Gemini with fallback model: %s", model_name)
+                            break
+                        except Exception as model_error:
+                            logger.warning("Failed to configure Gemini model %s: %s", model_name, model_error)
+                            continue
+                    else:
+                        logger.error("Failed to configure any Gemini model")
+                        self.provider = None
             except (ImportError, ValueError, Exception) as e:
                 logger.exception("Failed to initialize Gemini client: %s", e)
                 self.provider = None
