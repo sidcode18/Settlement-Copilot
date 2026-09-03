@@ -2,11 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { 
   X, 
   BarChart3, 
-  CheckCircle2, 
   AlertCircle, 
   RefreshCw, 
   Info,
-  Award
 } from 'lucide-react';
 import { fetchEvalReport } from '../api';
 
@@ -37,110 +35,106 @@ export default function EvalModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   const categoryLabels = {
-    standard_1to1: "Standard 1:1 Matches",
-    split_multi_order: "Split Multi-Order (2-4)",
-    refund_adjusted: "Refund Adjusted (Net)",
-    fee_deducted: "Fee Deducted (MDR)",
-    ambiguous_tie_breaker: "Ambiguous Tie-Breakers",
-    unresolved_exception: "Unresolved Exceptions"
+    standard_1to1: "Standard 1:1",
+    split_multi_order: "Multi-order splits",
+    refund_adjusted: "Refund adjusted",
+    fee_deducted: "Fee deducted",
+    ambiguous_tie_breaker: "Tie-breakers",
+    unresolved_exception: "Unresolved"
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0d1117]/80 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="w-full max-w-3xl bg-[#161b22] border border-[#30363d] rounded-lg overflow-hidden flex flex-col max-h-[90vh]">
         
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div className="px-6 py-4 border-b border-[#30363d] flex items-center justify-between bg-[#0d1117]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[#1f6feb]/10 text-[#58a6ff] flex items-center justify-center">
               <BarChart3 className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">Reconciliation Evaluation Report</h3>
-              <p className="text-xs text-slate-400">Ground-truth precision & recall breakdown (eval_results.json)</p>
+              <h3 className="text-sm font-semibold text-white">Evaluation Report</h3>
+              <p className="text-xs text-[#8b949e]">Precision and recall by category</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Modal Content */}
         <div className="p-6 overflow-y-auto space-y-5 text-xs">
           {loading ? (
-            <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
-              <RefreshCw className="w-6 h-6 animate-spin text-sky-400" />
-              <span>Computing precision and recall across all categories...</span>
+            <div className="py-12 flex flex-col items-center justify-center gap-3 text-[#8b949e]">
+              <RefreshCw className="w-6 h-6 animate-spin text-[#58a6ff]" />
+              <span>Loading metrics...</span>
             </div>
           ) : error ? (
-            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center gap-2">
+            <div className="p-4 rounded-lg bg-[#f85149]/10 border border-[#f85149]/20 text-[#f85149] flex items-center gap-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>Error loading eval metrics: {error}</span>
+              <span>Failed to load report: {error}</span>
             </div>
           ) : report ? (
             <>
-              {/* Top Level Metric Badges */}
               <div className="grid grid-cols-4 gap-3">
-                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                  <div className="text-slate-400 text-[11px]">Overall Precision</div>
-                  <div className="text-xl font-bold text-emerald-400 mt-1">
+                <div className="p-3.5 rounded-lg bg-[#0d1117] border border-[#30363d]">
+                  <div className="text-[#8b949e] text-[11px]">Precision</div>
+                  <div className="text-xl font-bold text-[#3fb950] mt-1">
                     {(report.overall_precision * 100).toFixed(1)}%
                   </div>
                 </div>
-                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                  <div className="text-slate-400 text-[11px]">Overall Recall</div>
-                  <div className="text-xl font-bold text-sky-400 mt-1">
+                <div className="p-3.5 rounded-lg bg-[#0d1117] border border-[#30363d]">
+                  <div className="text-[#8b949e] text-[11px]">Recall</div>
+                  <div className="text-xl font-bold text-[#58a6ff] mt-1">
                     {(report.overall_recall * 100).toFixed(1)}%
                   </div>
                 </div>
-                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                  <div className="text-slate-400 text-[11px]">Overall F1-Score</div>
-                  <div className="text-xl font-bold text-indigo-400 mt-1">
+                <div className="p-3.5 rounded-lg bg-[#0d1117] border border-[#30363d]">
+                  <div className="text-[#8b949e] text-[11px]">F1-Score</div>
+                  <div className="text-xl font-bold text-[#c9d1d9] mt-1">
                     {(report.overall_f1 * 100).toFixed(1)}%
                   </div>
                 </div>
-                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                  <div className="text-slate-400 text-[11px]">Total Evaluated</div>
+                <div className="p-3.5 rounded-lg bg-[#0d1117] border border-[#30363d]">
+                  <div className="text-[#8b949e] text-[11px]">Evaluated</div>
                   <div className="text-xl font-bold text-white mt-1">
-                    {report.total_payouts_evaluated} cases
+                    {report.total_payouts_evaluated}
                   </div>
                 </div>
               </div>
 
-              {/* Category Breakdown Table */}
               <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                  Performance by Settlement Category
+                <h4 className="text-xs font-semibold text-[#c9d1d9] uppercase tracking-wider">
+                  By category
                 </h4>
-                <div className="rounded-xl border border-slate-800 overflow-hidden">
+                <div className="rounded-lg border border-[#30363d] overflow-hidden">
                   <table className="w-full text-left">
-                    <thead className="bg-slate-950/80 text-slate-400 border-b border-slate-800">
+                    <thead className="bg-[#0d1117] text-[#8b949e] border-b border-[#30363d]">
                       <tr>
                         <th className="py-2.5 px-3">Category</th>
                         <th className="py-2.5 px-3 text-center">Cases</th>
                         <th className="py-2.5 px-3 text-right">Precision</th>
                         <th className="py-2.5 px-3 text-right">Recall</th>
-                        <th className="py-2.5 px-3 text-right">F1-Score</th>
+                        <th className="py-2.5 px-3 text-right">F1</th>
                         <th className="py-2.5 px-3 text-right">Accuracy</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                    <tbody className="divide-y divide-[#30363d] font-mono text-[11px]">
                       {Object.entries(report.categories || {}).map(([key, cat]) => (
-                        <tr key={key} className="hover:bg-slate-800/30">
-                          <td className="py-2.5 px-3 font-sans font-medium text-slate-200">
+                        <tr key={key} className="hover:bg-[#21262d]">
+                          <td className="py-2.5 px-3 font-sans font-medium text-[#c9d1d9]">
                             {categoryLabels[key] || key}
                           </td>
-                          <td className="py-2.5 px-3 text-center text-slate-400">{cat.total_cases}</td>
-                          <td className="py-2.5 px-3 text-right text-emerald-400">
+                          <td className="py-2.5 px-3 text-center text-[#8b949e]">{cat.total_cases}</td>
+                          <td className="py-2.5 px-3 text-right text-[#3fb950]">
                             {(cat.precision * 100).toFixed(1)}%
                           </td>
-                          <td className="py-2.5 px-3 text-right text-sky-400">
+                          <td className="py-2.5 px-3 text-right text-[#58a6ff]">
                             {(cat.recall * 100).toFixed(1)}%
                           </td>
-                          <td className="py-2.5 px-3 text-right text-indigo-400">
+                          <td className="py-2.5 px-3 text-right text-[#c9d1d9]">
                             {(cat.f1_score * 100).toFixed(1)}%
                           </td>
                           <td className="py-2.5 px-3 text-right text-white">
@@ -153,22 +147,20 @@ export default function EvalModal({ isOpen, onClose }) {
                 </div>
               </div>
 
-              {/* Addendum & Integrity Note */}
-              <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 text-slate-400 leading-relaxed flex items-start gap-2.5">
-                <Info className="w-4 h-4 text-sky-400 flex-shrink-0 mt-0.5" />
+              <div className="p-3.5 rounded-lg bg-[#0d1117] border border-[#30363d] text-[#8b949e] leading-relaxed flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-[#58a6ff] flex-shrink-0 mt-0.5" />
                 <div>
-                  <strong className="text-slate-200">Honest Evaluation Policy:</strong> Metrics report exact predictions without synthetic over-tuning. Split multi-orders and ambiguous narration tie-breakers test combinatorial logic and LLM context extraction under realistic noise.
+                  Metrics reflect predictions against ground-truth labels without manual tuning.
                 </div>
               </div>
             </>
           ) : null}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-end">
+        <div className="px-6 py-3.5 border-t border-[#30363d] bg-[#0d1117] flex items-center justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors"
+            className="px-4 py-1.5 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] text-xs font-medium transition-colors border border-[#30363d]"
           >
             Close
           </button>

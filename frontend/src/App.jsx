@@ -36,15 +36,12 @@ export default function App() {
       const h = await fetchHealth();
       setHealth(h);
 
-      // Fetch current matches
       let records = await fetchMatches();
       if (records.length === 0) {
-        // Run first reconciliation automatically
         const recRes = await runReconciliation();
         records = recRes.matches;
         setSummary(recRes.summary);
       } else {
-        // Calculate basic summary from existing matches
         computeSummaryFromMatches(records);
       }
       setMatches(records);
@@ -112,9 +109,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col antialiased">
+    <div className="min-h-screen bg-[#0d1117] text-[#c9d1d9] flex flex-col antialiased">
       
-      {/* Top Navigation */}
       <Header
         onReconcile={handleReconcile}
         onRegenerate={handleRegenerate}
@@ -126,29 +122,25 @@ export default function App() {
         summary={summary}
       />
 
-      {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
         
-        {/* Error Alert */}
         {error && (
-          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center justify-between">
+          <div className="p-4 rounded-lg bg-[#f85149]/10 border border-[#f85149]/20 text-[#f85149] flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
             <button 
               onClick={() => setError(null)}
-              className="text-xs text-rose-400 hover:underline"
+              className="text-xs text-[#f85149] hover:underline"
             >
               Dismiss
             </button>
           </div>
         )}
 
-        {/* KPI Summary Cards */}
         <SummaryCards summary={summary} />
 
-        {/* Payouts Explorer Table */}
         <PayoutsTable
           matches={matches}
           onAskCopilot={handleAskCopilot}
@@ -158,7 +150,6 @@ export default function App() {
 
       </main>
 
-      {/* Slide-over Copilot Chat */}
       <ChatDrawer
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
@@ -166,13 +157,11 @@ export default function App() {
         health={health}
       />
 
-      {/* Evaluation Breakdown Modal */}
       <EvalModal
         isOpen={isEvalOpen}
         onClose={() => setIsEvalOpen(false)}
       />
 
-      {/* Manual Review Verdict Modal */}
       <ManualReviewModal
         matchRecord={reviewRecord}
         isOpen={!!reviewRecord}
