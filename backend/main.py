@@ -148,13 +148,16 @@ def get_single_match(payout_id: str):
 @app.post("/chat", response_model=ChatResponse)
 @app.post("/api/chat", response_model=ChatResponse)
 def chat_with_copilot(req: ChatRequest):
-    history_dict = [m.model_dump() for m in (req.history or [])]
-    reply, tool_calls, followups = execute_chat_query(req.message, history_dict)
-    return ChatResponse(
-        reply=reply,
-        tool_calls_made=tool_calls,
-        suggested_followups=followups
-    )
+    try:
+        history_dict = [m.model_dump() for m in (req.history or [])]
+        reply, tool_calls, followups = execute_chat_query(req.message, history_dict)
+        return ChatResponse(
+            reply=reply,
+            tool_calls_made=tool_calls,
+            suggested_followups=followups
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/matches/{payout_id}/verdict")
 def update_verdict(payout_id: str, req: ManualVerdictRequest):
@@ -201,4 +204,7 @@ if os.path.exists(frontend_dist):
         file_path = os.path.join(frontend_dist, full_path)
         if os.path.exists(file_path) and os.path.isfile(file_path):
             return FileResponse(file_path)
-        return FileResponse(os.path.join(frontend_dist, "index.html"))
+        return FileResponse(
+            os.path.join(frontend_dist, "index.html"),
+            headers={"Cache-Control": "no-cache"},
+        )
