@@ -81,10 +81,10 @@ cd settlement-copilot
 ```
 
 ### 2. Configure Environment (Optional for API Key)
-Copy `.env.example` to `.env` in the project root. Setting an Anthropic or OpenAI key enables full LLM reasoning:
+Copy `.env.example` to `.env` in the project root. Setting an Anthropic, OpenAI, or Gemini key enables full LLM reasoning:
 ```bash
 cp .env.example .env
-# Add ANTHROPIC_API_KEY=sk-... or OPENAI_API_KEY=sk-... to .env
+# Add ANTHROPIC_API_KEY=sk-... or OPENAI_API_KEY=sk-... or GEMINI_API_KEY=... to .env
 ```
 
 > **LLM fallback notice**: If no API key is provided, the backend starts in **rule-based heuristic fallback mode** for offline testing. A warning is logged on startup. For judged runs, set an Anthropic or OpenAI key.
@@ -118,14 +118,23 @@ python3 eval.py
 | Category | Cases | Precision | Recall | F1-Score | Accuracy |
 |---|:---:|:---:|:---:|:---:|:---:|
 | **Standard 1:1 Matches** | 36 | **100.0%** | **100.0%** | **100.0%** | **100.0%** |
-| **Split Multi-Order (2-4)** | 12 | **100.0%** | **91.7%** | **95.7%** | **91.7%** |
-| **Refund Adjusted (Net)** | 9 | **40.0%** | **33.3%** | **36.4%** | **22.2%** |
-| **Fee Deducted (MDR)** | 4 | **66.7%** | **66.7%** | **66.7%** | **50.0%** |
-| **Ambiguous Tie-Breakers** | 4 | **66.7%** | **66.7%** | **66.7%** | **50.0%** |
+| **Split Multi-Order (2-4)** | 12 | **0.0%   0.0%   0.0%   0.0%** |
+| **Refund Adjusted (Net)** | 6 | **0.0%   0.0%   0.0%   0.0%** |
+| **Fee Deducted (MDR)** | 3 | **0.0%   0.0%   0.0%   0.0%** |
+| **Ambiguous Tie-Breakers** | 3 | **0.0%   0.0%   0.0%   0.0%** |
 | **Unresolved Exceptions** | 1 | **100.0%** | **100.0%** | **100.0%** | **100.0%** |
-| **OVERALL PIPELINE** | **61** | **91.4%** | **88.3%** | **89.8%** | **81.8%** |
+| **OVERALL PIPELINE** | **61** | **100.0%** | **60.0%** | **75.0%** | **60.7%** |
 
-*Note: In accordance with hackathon evaluation guidelines, no synthetic over-tuning was performed. Partial refunds and multi-candidate tie-breakers present realistic operational friction where heuristic ambiguity gracefully routes to the human exceptions queue.*
+*Note: Current performance with real API key active. Complex cases (splits, refunds, fees, tie-breakers) are currently unresolved due to API quota limits and JSON parsing issues with the LLM responses. The deterministic layer handles standard 1:1 matches perfectly (100% precision/recall).*
+
+---
+
+## Known Limitations
+
+- **API Quota Limits**: The free tier Gemini API has rate limits (5 requests/minute) that prevent successful processing of complex cases during evaluation runs
+- **JSON Parsing Issues**: The LLM sometimes returns malformed JSON responses (truncated strings, markdown code blocks) that fail parsing and revert to unresolved
+- **Multi-Order Complexity**: The subset-sum algorithm with LLM validation works but is sensitive to API response quality and quota constraints
+- **No Real Bank Integration**: Currently uses synthetic data generation for testing purposes only
 
 ---
 

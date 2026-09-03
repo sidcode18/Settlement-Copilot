@@ -139,6 +139,9 @@ def execute_chat_query(user_message: str, history: List[Dict[str, str]]) -> Tupl
     tool_calls_made = []
     text_lower = user_message.lower().strip()
     
+    if not text_lower:
+        return "Please enter a question about settlement reconciliation, payouts, or order matching.", tool_calls_made, ["Get reconciliation summary", "List unresolved exceptions", "Show split payments"]
+    
     # 1. Check if user is asking about a specific payout (e.g. "why wasn't payout PAY-501 matched?" or "PAY-512")
     payout_match = re.search(r"\b(pay[-_]?\d+)\b", text_lower)
     if payout_match:
