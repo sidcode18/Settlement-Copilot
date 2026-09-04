@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import re
+import time
 from json import JSONDecodeError
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
@@ -11,6 +12,7 @@ from openai import APIConnectionError as OpenAIAPIConnectionError
 from openai import APIStatusError as OpenAIAPIStatusError
 from openai import APITimeoutError as OpenAIAPITimeoutError
 import google.generativeai as genai
+from google.api_core.exceptions import ResourceExhausted
 
 load_dotenv()
 
@@ -155,19 +157,31 @@ class LLMClient:
                 return None
 
         if self.provider == "Gemini" and self.gemini_client:
-            try:
-                combined_prompt = f"{system_prompt}\n\n{user_prompt}"
-                response = self.gemini_client.generate_content(
-                    combined_prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        temperature=temperature,
-                        max_output_tokens=1024,
+            max_retries = 5
+            base_delay = 12
+            
+            for attempt in range(max_retries):
+                try:
+                    combined_prompt = f"{system_prompt}\n\n{user_prompt}"
+                    response = self.gemini_client.generate_content(
+                        combined_prompt,
+                        generation_config=genai.types.GenerationConfig(
+                            temperature=temperature,
+                            max_output_tokens=1024,
+                        )
                     )
-                )
-                return response.text
-            except Exception as e:
-                logger.exception("Gemini API call failed: %s", e)
-                return None
+                    return response.text
+                except ResourceExhausted as e:
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2 ** attempt)
+                        logger.warning("Gemini rate limit hit (429). Retrying in %s seconds (attempt %s/%s)", delay, attempt + 1, max_retries)
+                        time.sleep(delay)
+                    else:
+                        logger.exception("Gemini API rate limit exceeded after %s retries: %s", max_retries, e)
+                        return None
+                except Exception as e:
+                    logger.exception("Gemini API call failed: %s", e)
+                    return None
 
         logger.error("No callable LLM client configured for provider %s", self.provider)
         return None

@@ -1,5 +1,6 @@
 import json
 import itertools
+import time
 from datetime import datetime
 from typing import List, Dict, Any, Tuple, Set, Optional
 from backend.models import Payout, Order, MatchRecord
@@ -177,6 +178,9 @@ def run_agent_matching(
             "payout": payout.model_dump(),
             "candidates": candidates
         }
+        
+        # Add delay to stay under Gemini free-tier rate limit (5 requests/minute)
+        time.sleep(13)
         
         eval_result = llm_client.evaluate_candidates_json(system_prompt, user_prompt, context_meta)
         
