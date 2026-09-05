@@ -46,6 +46,7 @@ class ReconcileSummary(BaseModel):
     unresolved_value: float
     llm_provider_active: str
     is_fallback: bool
+    quota_exceeded: bool = False
 
 class ReconcileResponse(BaseModel):
     status: str

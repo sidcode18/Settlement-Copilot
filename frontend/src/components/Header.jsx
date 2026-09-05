@@ -43,9 +43,16 @@ export default function Header({
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#161b22] border border-[#30363d] text-xs">
             <Cpu className="w-3.5 h-3.5 text-[#8b949e]" />
             <span className="text-[#8b949e]">Provider:</span>
-            {health?.is_fallback ? (
+            {health?.quota_exceeded ? (
+              <span
+                className="text-[#d29922] font-medium flex items-center gap-1"
+                title="AI quota ran out mid-run — remaining payouts are being reconciled with the local rule-based heuristic engine, not the LLM."
+              >
+                <AlertTriangle className="w-3 h-3 inline" /> Quota Exceeded — Heuristic Mode
+              </span>
+            ) : health?.is_fallback ? (
               <span className="text-[#d29922] font-medium flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3 inline" /> Fallback
+                <AlertTriangle className="w-3 h-3 inline" /> Fallback (No Key)
               </span>
             ) : (
               <span className="text-[#3fb950] font-medium flex items-center gap-1">

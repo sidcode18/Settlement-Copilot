@@ -131,10 +131,10 @@ python3 eval.py
 
 ## Known Limitations
 
-- **API Quota Limits**: The free tier Gemini API has rate limits (5 requests/minute) that prevent successful processing of complex cases during evaluation runs
-- **JSON Parsing Issues**: The LLM sometimes returns malformed JSON responses (truncated strings, markdown code blocks) that fail parsing and revert to unresolved
-- **Multi-Order Complexity**: The subset-sum algorithm with LLM validation works but is sensitive to API response quality and quota constraints
-- **No Real Bank Integration**: Currently uses synthetic data generation for testing purposes only
+- **API Quota Limits**: Free-tier keys (esp. Gemini, 5 req/min) can run out mid-evaluation. When this happens, `llm_client` trips a circuit breaker and automatically reroutes remaining payouts to the built-in rule-based heuristic engine (narration-token matching, date proximity, fee/refund arithmetic against the seed data) instead of dumping them into the exception queue. The UI header and `/api/health` both surface a **"Quota Exceeded — Heuristic Mode"** badge so it's clear which payouts were LLM-verified vs. heuristically resolved (heuristic-fallback matches are also confidence-capped at 0.85 and their `reasoning` is prefixed with `[Quota-exceeded fallback]`).
+- **JSON Parsing Issues**: The LLM sometimes returns malformed JSON responses (truncated strings, markdown code blocks) that fail parsing; this still reverts a single payout to unresolved (retried once) unless the failure is quota-related, in which case it also falls back to the heuristic engine.
+- **Multi-Order Complexity**: The subset-sum algorithm with LLM validation works but is sensitive to API response quality and quota constraints.
+- **No Real Bank Integration**: Currently uses synthetic data generation for testing purposes only.
 
 ---
 

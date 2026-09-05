@@ -117,16 +117,44 @@ class LLMClient:
                 logger.exception("Failed to initialize Gemini client: %s", e)
                 self.provider = None
 
+        # Becomes True the first time we detect the real provider is out of
+        # quota (429 / rate-limit / ResourceExhausted). Once flipped, we stop
+        # calling the paid/free-tier API for the rest of this process and
+        # route straight to the rule-based heuristic matcher below, so a
+        # blown quota degrades to "seed-data heuristic reconciliation"
+        # instead of dumping every remaining payout into unresolved.
+        self.quota_exhausted = False
+
     def is_fallback(self) -> bool:
         return self.provider is None
 
+    def is_quota_exhausted(self) -> bool:
+        return self.quota_exhausted
+
+    def is_degraded(self) -> bool:
+        """True whenever matches are being produced by the rule-based
+        heuristic engine instead of a live LLM call — either because no key
+        was ever configured, or because the configured key's quota ran out
+        mid-run."""
+        return self.is_fallback() or self.quota_exhausted
+
     def get_provider_name(self) -> str:
-        return self.provider if self.provider else "Rule-based Fallback (No Key)"
+        if self.provider is None:
+            return "Rule-based Fallback (No Key)"
+        if self.quota_exhausted:
+            return f"{self.provider} (Quota Exceeded — Heuristic Fallback)"
+        return self.provider
 
     def call_llm_raw(self, system_prompt: str, user_prompt: str, temperature: float = 0.0) -> Optional[str]:
         if not self.provider:
             return None
-            
+
+        # Circuit breaker: once we've confirmed the free-tier quota is dead,
+        # don't burn more time/requests re-confirming it for every remaining
+        # payout. Fall straight through to the heuristic path.
+        if self.quota_exhausted:
+            return None
+
         if self.provider == "Anthropic" and self.anthropic_client:
             try:
                 response = self.anthropic_client.messages.create(
@@ -137,7 +165,14 @@ class LLMClient:
                     messages=[{"role": "user", "content": user_prompt}]
                 )
                 return response.content[0].text
-            except (AnthropicAPIConnectionError, AnthropicAPIStatusError, TimeoutError) as e:
+            except AnthropicAPIStatusError as e:
+                if getattr(e, "status_code", None) == 429:
+                    logger.warning("Anthropic quota/rate-limit exhausted (429). Switching to rule-based heuristic fallback for remaining payouts.")
+                    self.quota_exhausted = True
+                else:
+                    logger.exception("Anthropic API call failed: %s", e)
+                return None
+            except (AnthropicAPIConnectionError, TimeoutError) as e:
                 logger.exception("Anthropic API call failed: %s", e)
                 return None
 
@@ -152,14 +187,21 @@ class LLMClient:
                     ]
                 )
                 return response.choices[0].message.content
-            except (OpenAIAPIConnectionError, OpenAIAPIStatusError, OpenAIAPITimeoutError, TimeoutError) as e:
+            except OpenAIAPIStatusError as e:
+                if getattr(e, "status_code", None) == 429:
+                    logger.warning("OpenAI quota/rate-limit exhausted (429). Switching to rule-based heuristic fallback for remaining payouts.")
+                    self.quota_exhausted = True
+                else:
+                    logger.exception("OpenAI API call failed: %s", e)
+                return None
+            except (OpenAIAPIConnectionError, OpenAIAPITimeoutError, TimeoutError) as e:
                 logger.exception("OpenAI API call failed: %s", e)
                 return None
 
         if self.provider == "Gemini" and self.gemini_client:
-            max_retries = 5
+            max_retries = 3
             base_delay = 12
-            
+
             for attempt in range(max_retries):
                 try:
                     combined_prompt = f"{system_prompt}\n\n{user_prompt}"
@@ -177,7 +219,8 @@ class LLMClient:
                         logger.warning("Gemini rate limit hit (429). Retrying in %s seconds (attempt %s/%s)", delay, attempt + 1, max_retries)
                         time.sleep(delay)
                     else:
-                        logger.exception("Gemini API rate limit exceeded after %s retries: %s", max_retries, e)
+                        logger.warning("Gemini free-tier quota exhausted after %s retries. Switching to rule-based heuristic fallback for remaining payouts: %s", max_retries, e)
+                        self.quota_exhausted = True
                         return None
                 except Exception as e:
                     logger.exception("Gemini API call failed: %s", e)
@@ -191,8 +234,9 @@ class LLMClient:
         Calls LLM to validate or tie-break candidate order matches.
         Enforces structured JSON output with automatic 1-retry fallback.
         """
-        # If real API key is available, call the LLM
-        if self.provider:
+        # If real API key is available AND quota isn't already known to be
+        # dead, call the LLM.
+        if self.provider and not self.quota_exhausted:
             for attempt in range(2):
                 raw_out = self.call_llm_raw(system_prompt, user_prompt)
                 if raw_out:
@@ -203,15 +247,35 @@ class LLMClient:
                             return parsed
                     except (JSONDecodeError, TypeError) as err:
                         logger.warning("Attempt %s: JSON parse failed (%s). Output was: %s", attempt + 1, err, raw_out[:120])
-            logger.warning("LLM call failed after 2 attempts. Reverting to unresolved safety response.")
+                if self.quota_exhausted:
+                    # call_llm_raw just discovered the quota is dead mid-retry-loop —
+                    # stop burning attempts and drop straight to the heuristic path below.
+                    break
+
+            if self.quota_exhausted:
+                logger.info("Quota exhausted — reconciling this payout with the rule-based heuristic engine instead of the exception queue.")
+                result = self._rule_based_candidate_evaluation(context_metadata)
+                result["reasoning"] = f"[Quota-exceeded fallback] {result.get('reasoning', '')}".strip()
+                # Be a little more conservative than the offline-dev heuristic since
+                # this is standing in for a real LLM call, not just local dev testing.
+                result["confidence"] = round(min(result.get("confidence", 0.0), 0.85), 3)
+                return result
+
+            logger.warning("LLM call failed after 2 attempts (not a quota issue). Reverting to unresolved safety response.")
             return {
                 "selected_order_ids": [],
                 "confidence": 0.0,
                 "reasoning": "LLM call failed or produced malformed output. Marked unresolved for safety."
             }
 
-        # Offline Dev Rule-Based Heuristic Fallback (explicitly logged as fallback)
-        return self._rule_based_candidate_evaluation(context_metadata)
+        # No API key configured, or quota already known to be exhausted from
+        # an earlier payout in this run: use the seed-data rule-based
+        # heuristic engine so reconciliation keeps working end-to-end.
+        result = self._rule_based_candidate_evaluation(context_metadata)
+        if self.quota_exhausted:
+            result["reasoning"] = f"[Quota-exceeded fallback] {result.get('reasoning', '')}".strip()
+            result["confidence"] = round(min(result.get("confidence", 0.0), 0.85), 3)
+        return result
 
     def _rule_based_candidate_evaluation(self, meta: Dict[str, Any]) -> Dict[str, Any]:
         """

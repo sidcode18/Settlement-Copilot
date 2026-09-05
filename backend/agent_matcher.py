@@ -179,8 +179,11 @@ def run_agent_matching(
             "candidates": candidates
         }
         
-        # Add delay to stay under Gemini free-tier rate limit (5 requests/minute)
-        time.sleep(13)
+        # Add delay to stay under Gemini free-tier rate limit (5 requests/minute).
+        # Skip once quota is already known to be dead — we're just calling the
+        # local heuristic at that point, so there's nothing to throttle.
+        if not llm_client.is_quota_exhausted():
+            time.sleep(13)
         
         eval_result = llm_client.evaluate_candidates_json(system_prompt, user_prompt, context_meta)
         

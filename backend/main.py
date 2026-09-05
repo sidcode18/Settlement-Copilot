@@ -56,7 +56,8 @@ def health_check():
     return {
         "status": "ok", 
         "provider": llm_client.get_provider_name(), 
-        "is_fallback": llm_client.is_fallback()
+        "is_fallback": llm_client.is_fallback(),
+        "quota_exceeded": llm_client.is_quota_exhausted()
     }
 
 @app.post("/reconcile", response_model=ReconcileResponse)
@@ -118,7 +119,8 @@ def reconcile():
         total_settled_value=round(total_val, 2),
         unresolved_value=round(unresolved_val, 2),
         llm_provider_active=llm_client.get_provider_name(),
-        is_fallback=llm_client.is_fallback()
+        is_fallback=llm_client.is_fallback(),
+        quota_exceeded=llm_client.is_quota_exhausted()
     )
     
     full_match_records = get_all_matches()

@@ -80,9 +80,11 @@ export default function ChatDrawer({ isOpen, onClose, initialQuery, health }) {
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white">Chat</h3>
-            {health?.is_fallback && (
-              <p className="text-[11px] text-[#d29922]">Fallback mode</p>
-            )}
+            {health?.quota_exceeded ? (
+              <p className="text-[11px] text-[#d29922]">Quota exceeded — heuristic mode</p>
+            ) : health?.is_fallback ? (
+              <p className="text-[11px] text-[#d29922]">Fallback mode (no key)</p>
+            ) : null}
           </div>
         </div>
         <button

@@ -35,7 +35,14 @@ def tool_get_reconciliation_summary() -> Dict[str, Any]:
         "agent_resolved_pct": round((agent_count / total) * 100, 2) if total else 0.0,
         "unresolved_pct": round((unresolved_count / total) * 100, 2) if total else 0.0,
         "total_settled_value_inr": round(total_val, 2),
-        "unresolved_value_inr": round(unresolved_val, 2)
+        "unresolved_value_inr": round(unresolved_val, 2),
+        "llm_provider": llm_client.get_provider_name(),
+        "quota_exceeded": llm_client.is_quota_exhausted(),
+        "note": (
+            "AI quota was exhausted during this run — matches above were resolved "
+            "by the local rule-based heuristic engine, not live LLM calls."
+            if llm_client.is_quota_exhausted() else None
+        )
     }
 
 def tool_list_unresolved_matches() -> List[Dict[str, Any]]:
